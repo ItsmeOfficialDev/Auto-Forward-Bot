@@ -1,7 +1,7 @@
 import os
 
 class Config:
-    # Bot Token from Koyeb environment variable
+    # Bot Token from environment variable
     BOT_TOKEN = os.getenv('BOT_TOKEN')
     
     # Speed Configuration - 25 MESSAGES/SECOND 🚀
@@ -30,17 +30,19 @@ class Config:
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
     # Bot Information
-    BOT_USERNAME = "@YourFastForwardBot"  # Update with your bot username
-    SUPPORT_CHAT = "@YourSupportChannel"  # Update if you have support channel
+    BOT_USERNAME = "@Speed_Fast_Forward_bot"  # Update with your bot username
+    SUPPORT_CHAT = "https://t.me/Oggybotz"  # Update if you have support channel
     
     @classmethod
     def validate_config(cls):
         """Validate that all required configurations are set"""
         if not cls.BOT_TOKEN:
-            raise ValueError("❌ BOT_TOKEN is not set in environment variables")
+            print("❌ BOT_TOKEN is not set in environment variables")
+            return False
         
         if cls.MAX_SPEED > 30:
-            raise ValueError("❌ MAX_SPEED cannot exceed 30 messages/second")
+            print("❌ MAX_SPEED cannot exceed 30 messages/second")
+            return False
         
         required_vars = {
             'BOT_TOKEN': cls.BOT_TOKEN,
@@ -51,17 +53,17 @@ class Config:
         
         for var_name, var_value in required_vars.items():
             if var_value is None:
-                raise ValueError(f"❌ Required configuration {var_name} is not set")
+                print(f"❌ Required configuration {var_name} is not set")
+                return False
         
         print("✅ All configurations validated successfully!")
         print(f"🚀 Bot configured for {cls.MAX_SPEED} messages/second")
         print(f"⏰ Burst-Rest Cycle: {cls.BURST_DURATION}s ON → {cls.REST_DURATION}s OFF")
         return True
 
-# Validate configuration when module is imported
+# Validate configuration but don't exit if fails
 try:
     Config.validate_config()
-except ValueError as e:
-    print(f"❌ Configuration Error: {e}")
-    print("💡 Solution: Add BOT_TOKEN to Koyeb Environment Variables")
-    exit(1)
+except Exception as e:
+    print(f"⚠️ Configuration check had issues: {e}")
+    print("🔧 Continuing anyway...")
