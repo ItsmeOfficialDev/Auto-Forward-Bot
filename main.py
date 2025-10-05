@@ -3,19 +3,25 @@ import os
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
+# Import our handlers
+from handlers.menu_handlers import menu_handler
+from handlers.setup_handlers import setup_handler
+from handlers.forward_handlers import forward_handler
+from config import Config
+
 # Load environment variables
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    format=Config.LOG_FORMAT,
+    level=getattr(logging, Config.LOG_LEVEL)
 )
 logger = logging.getLogger(__name__)
 
 class FastForwardBot:
     def __init__(self):
-        self.token = os.getenv('BOT_TOKEN')
+        self.token = Config.BOT_TOKEN
         if not self.token:
             raise ValueError("❌ BOT_TOKEN not found in environment variables")
         
@@ -29,165 +35,155 @@ class FastForwardBot:
         self.application.add_handler(CommandHandler("help", self.help_command))
         self.application.add_handler(CommandHandler("status", self.status_command))
         
-        # Button click handlers
-        self.application.add_handler(CallbackQueryHandler(self.button_click, pattern="^main_"))
+        # Button click handlers - MAIN MENU
+        self.application.add_handler(CallbackQueryHandler(self.main_menu_click, pattern="^menu_"))
+        
+        # Button click handlers - FORWARDING
+        self.application.add_handler(CallbackQueryHandler(self.forwarding_click, pattern="^forward_"))
+        
+        # Button click handlers - SOURCE SETUP
+        self.application.add_handler(CallbackQueryHandler(self.source_setup_click, pattern="^source_"))
+        
+        # Button click handlers - DESTINATION SETUP
+        self.application.add_handler(CallbackQueryHandler(self.dest_setup_click, pattern="^dest_"))
         
         # Message handlers
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        self.application.add_handler(MessageHandler(filters.FORWARDED, self.handle_forwarded_message))
         
         # Error handler
         self.application.add_error_handler(self.error_handler)
     
+    # MAIN MENU COMMANDS
     async def start_command(self, update, context):
-        """Send welcome message with main menu buttons"""
-        welcome_text = """
-🚀 **FASTEST FORWARD BOT ON TELEGRAM**
-
-⚡ **25 MESSAGES/SECOND** - Maximum Telegram Speed
-🛡️ **100% Safe** - No Bans, Official API
-🎯 **One-Click Setup** - Just Tap Buttons
-
-**What would you like to do?**"""
-        
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        
-        keyboard = [
-            [InlineKeyboardButton("📤 SETUP SOURCE CHANNEL", callback_data="main_setup_source")],
-            [InlineKeyboardButton("🎯 SETUP DESTINATION CHANNEL", callback_data="main_setup_dest")],
-            [InlineKeyboardButton("🚀 START FORWARDING", callback_data="main_start_forward")],
-            [InlineKeyboardButton("📊 VIEW STATUS", callback_data="main_status"),
-             InlineKeyboardButton("❓ HELP", callback_data="main_help")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
+        await menu_handler.show_main_menu(update, context)
     
     async def help_command(self, update, context):
-        """Send help information"""
         help_text = """
-📚 **HOW IT WORKS:**
+📚 **FAST FORWARD BOT - COMPLETE GUIDE**
 
 ⚡ **SPEED SYSTEM:**
-• **25 messages/second** - Maximum allowed
-• **5-minute bursts** then 30-second rests
-• **Zero risk** of Telegram limits
+• **25 messages/second** - Maximum Telegram allows
+• **5-minute bursts** then **30-second rests**
+• **Zero risk** of bans or limits
 
-🔄 **SETUP PROCESS:**
-1. Setup Source Channel (where to read from)
-2. Setup Destination Channel (where to send to)  
-3. Start Forwarding - Watch the magic!
+🔄 **HOW TO USE:**
+1. **Setup Source Channel** (where to read from)
+2. **Setup Destination Channel** (where to send to)
+3. **Start Forwarding** - Watch the magic!
 
 🛡️ **REQUIREMENTS:**
 • You must be **admin** in both channels
 • Bot needs **admin** in destination channel
 
-**Just tap buttons - no typing needed!**"""
-        
+🎯 **FEATURES:**
+• One-click button interface
+• Live progress tracking
+• Pause/Resume/Stop controls
+• Error recovery system
+
+**Just tap buttons - it's that easy!**"""
         await update.message.reply_text(help_text, parse_mode='Markdown')
     
     async def status_command(self, update, context):
-        """Show current forwarding status"""
-        status_text = "📊 **SYSTEM STATUS**\n\n"
-        status_text += "⚡ **Forwarding Engine:** READY\n"
-        status_text += "🛡️ **Safety System:** ACTIVE\n"
-        status_text += "🚀 **Max Speed:** 25 messages/second\n"
-        status_text += "🔧 **Bot Status:** OPERATIONAL\n\n"
-        status_text += "Use buttons below to start setup!"
-        
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = [[InlineKeyboardButton("📤 START SETUP", callback_data="main_setup_source")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(status_text, reply_markup=reply_markup, parse_mode='Markdown')
+        await menu_handler.show_status(update, context)
     
-    async def button_click(self, update, context):
-        """Handle all button clicks"""
+    # BUTTON CLICK HANDLERS
+    async def main_menu_click(self, update, context):
         query = update.callback_query
         await query.answer()
         
         data = query.data
         
-        if data == "main_setup_source":
-            await self.setup_source_channel(query)
-        elif data == "main_setup_dest":
-            await self.setup_destination_channel(query)
-        elif data == "main_start_forward":
-            await self.start_forwarding(query)
-        elif data == "main_status":
-            await self.show_status(query)
-        elif data == "main_help":
-            await self.show_help(query)
+        if data == "menu_main":
+            await menu_handler.show_main_menu(update, context)
+        elif data == "menu_setup_source":
+            await menu_handler.show_source_setup(update, context)
+        elif data == "menu_setup_dest":
+            await menu_handler.show_dest_setup(update, context)
+        elif data == "menu_start_forward":
+            await forward_handler.start_forwarding(update, context)
+        elif data == "menu_status":
+            await menu_handler.show_status(update, context)
+        elif data == "menu_help":
+            await self.help_command(update, context)
     
-    async def setup_source_channel(self, query):
-        """Setup source channel flow"""
-        setup_text = """
-📤 **SETUP SOURCE CHANNEL**
-
-Please forward a message from your **SOURCE** channel (where we read messages from).
-
-**Requirements:**
-• You must be **admin** in this channel
-• Channel must be **private**"""
+    async def forwarding_click(self, update, context):
+        query = update.callback_query
+        await query.answer()
         
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = [
-            [InlineKeyboardButton("🔗 OR SEND CHANNEL LINK", callback_data="source_send_link")],
-            [InlineKeyboardButton("⬅️ BACK TO MAIN", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        data = query.data
         
-        await query.edit_message_text(setup_text, reply_markup=reply_markup, parse_mode='Markdown')
+        if data == "forward_start":
+            await forward_handler.start_forwarding(update, context)
+        elif data == "forward_pause":
+            await forward_handler.pause_forwarding(update, context)
+        elif data == "forward_stop":
+            await forward_handler.stop_forwarding(update, context)
+        elif data == "forward_stats":
+            await query.answer("📊 Stats feature coming soon!", show_alert=True)
+        elif data == "forward_resume":
+            await query.answer("▶️ Resume feature coming soon!", show_alert=True)
     
-    async def setup_destination_channel(self, query):
-        """Setup destination channel flow"""
-        setup_text = """
-🎯 **SETUP DESTINATION CHANNEL**
-
-Please forward a message from your **DESTINATION** channel (where we send messages to).
-
-**Requirements:**
-• You must be **admin** in this channel  
-• Bot must be **admin** in this channel
-• Channel must be **private**"""
+    async def source_setup_click(self, update, context):
+        query = update.callback_query
+        await query.answer()
         
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = [
-            [InlineKeyboardButton("🔗 OR SEND CHANNEL LINK", callback_data="dest_send_link")],
-            [InlineKeyboardButton("👑 ADD BOT AS ADMIN", url="http://t.me/your_bot_username")],
-            [InlineKeyboardButton("⬅️ BACK TO MAIN", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        data = query.data
         
-        await query.edit_message_text(setup_text, reply_markup=reply_markup, parse_mode='Markdown')
+        if data == "source_forward_msg":
+            await query.edit_message_text(
+                "📨 **Please forward any message from your SOURCE channel now...**\n\n"
+                "I'll automatically detect the channel and save it.",
+                parse_mode='Markdown'
+            )
+        elif data == "source_send_link":
+            await query.edit_message_text(
+                "🔗 **Please send your SOURCE channel link:**\n\n"
+                "Format: @channel_username or https://t.me/channel_username",
+                parse_mode='Markdown'
+            )
+            context.user_data['awaiting_source_link'] = True
     
-    async def start_forwarding(self, query):
-        """Start the forwarding process"""
-        # Placeholder - will be implemented in forward_handlers.py
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = [[InlineKeyboardButton("⬅️ BACK TO MAIN", callback_data="main_menu")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+    async def dest_setup_click(self, update, context):
+        query = update.callback_query
+        await query.answer()
         
-        await query.edit_message_text(
-            "🚀 **FORWARDING SYSTEM**\n\nThis feature will be available in the next update!\n\nWe'll implement the 25 messages/second burst system here.", 
-            reply_markup=reply_markup, 
-            parse_mode='Markdown'
-        )
+        data = query.data
+        
+        if data == "dest_forward_msg":
+            await query.edit_message_text(
+                "📨 **Please forward any message from your DESTINATION channel now...**\n\n"
+                "I'll automatically detect the channel and save it.",
+                parse_mode='Markdown'
+            )
+        elif data == "dest_send_link":
+            await query.edit_message_text(
+                "🔗 **Please send your DESTINATION channel link:**\n\n"
+                "Format: @channel_username or https://t.me/channel_username",
+                parse_mode='Markdown'
+            )
+            context.user_data['awaiting_dest_link'] = True
     
-    async def show_status(self, query):
-        """Show detailed status"""
-        await self.status_command(query, query.message)
-    
-    async def show_help(self, query):
-        """Show help information"""
-        await self.help_command(query, query.message)
-    
+    # MESSAGE HANDLERS
     async def handle_message(self, update, context):
-        """Handle regular text messages"""
-        # Placeholder - will handle channel links and forwarded messages
-        await update.message.reply_text(
-            "📨 I see your message! For full functionality, please use the buttons from /start command.",
-            parse_mode='Markdown'
-        )
+        """Handle regular text messages (channel links)"""
+        await setup_handler.handle_channel_link(update, context)
+    
+    async def handle_forwarded_message(self, update, context):
+        """Handle forwarded messages from channels"""
+        user_id = update.message.from_user.id
+        user_channels = await setup_handler.get_user_channels(user_id)
+        
+        if 'source' not in user_channels:
+            await setup_handler.handle_source_forward(update, context)
+        elif 'destination' not in user_channels:
+            await setup_handler.handle_dest_forward(update, context)
+        else:
+            await update.message.reply_text(
+                "✅ Both channels already setup! Use the buttons from /start to begin forwarding.",
+                parse_mode='Markdown'
+            )
     
     async def error_handler(self, update, context):
         """Log errors"""
@@ -196,8 +192,9 @@ Please forward a message from your **DESTINATION** channel (where we send messag
     def run(self):
         """Start the bot"""
         print("🚀 Fast Forward Bot is starting...")
-        print("⚡ Speed: 25 messages/second")
-        print("🛡️ Safety: Burst + Rest system active")
+        print(f"⚡ Speed: {Config.MAX_SPEED} messages/second")
+        print(f"🛡️ Safety: {Config.BURST_DURATION}s ON + {Config.REST_DURATION}s OFF")
+        print("✅ All systems operational!")
         self.application.run_polling()
 
 if __name__ == "__main__":
