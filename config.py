@@ -1,14 +1,10 @@
 import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 class Config:
-    # Bot Token from environment variable
+    # Bot Token from Koyeb environment variable
     BOT_TOKEN = os.getenv('BOT_TOKEN')
     
-    # Speed Configuration
+    # Speed Configuration - 25 MESSAGES/SECOND 🚀
     MAX_SPEED = 25  # messages per second
     BURST_DURATION = 300  # 5 minutes in seconds
     REST_DURATION = 30  # 30 seconds rest
@@ -34,8 +30,8 @@ class Config:
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
     # Bot Information
-    BOT_USERNAME = "@YourBotUsername"  # Update this
-    SUPPORT_CHAT = "@YourSupportChannel"  # Update this
+    BOT_USERNAME = "@YourFastForwardBot"  # Update with your bot username
+    SUPPORT_CHAT = "@YourSupportChannel"  # Update if you have support channel
     
     @classmethod
     def validate_config(cls):
@@ -58,11 +54,14 @@ class Config:
                 raise ValueError(f"❌ Required configuration {var_name} is not set")
         
         print("✅ All configurations validated successfully!")
+        print(f"🚀 Bot configured for {cls.MAX_SPEED} messages/second")
+        print(f"⏰ Burst-Rest Cycle: {cls.BURST_DURATION}s ON → {cls.REST_DURATION}s OFF")
         return True
 
 # Validate configuration when module is imported
 try:
     Config.validate_config()
 except ValueError as e:
-    print(f"Configuration Error: {e}")
+    print(f"❌ Configuration Error: {e}")
+    print("💡 Solution: Add BOT_TOKEN to Koyeb Environment Variables")
     exit(1)
