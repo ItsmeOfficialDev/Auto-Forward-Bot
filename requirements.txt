@@ -4,3 +4,4 @@ python-dotenv==1.0.1
 Pillow==10.4.0
 requests==2.32.3
 orjson==3.10.7
+flask==3.0.2
