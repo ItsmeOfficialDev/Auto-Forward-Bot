@@ -83,47 +83,82 @@ class FastForwardBot:
     
     # ==================== COMMAND HANDLERS ====================
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await menu_handler.show_main_menu(update, context)
+        """Fixed start command - handles both new messages and button clicks"""
+        try:
+            # Try to use menu handler first
+            if hasattr(update, 'callback_query') and update.callback_query:
+                await menu_handler.show_main_menu(update, context)
+            else:
+                # Send as new message for /start command
+                welcome_text = """
+🚀 **FASTEST FORWARD BOT ON TELEGRAM**
+
+⚡ **25 MESSAGES/SECOND** - Maximum Telegram Speed
+🛡️ **100% Safe** - No Bans, Official API  
+🎯 **One-Click Setup** - Just Tap Buttons
+
+**What would you like to do?**"""
+                
+                keyboard = [
+                    [InlineKeyboardButton("📤 SETUP SOURCE CHANNEL", callback_data="menu_setup_source")],
+                    [InlineKeyboardButton("🎯 SETUP DESTINATION CHANNEL", callback_data="menu_setup_dest")],
+                    [InlineKeyboardButton("🚀 START FORWARDING", callback_data="menu_start_forward")],
+                    [InlineKeyboardButton("📊 VIEW STATUS", callback_data="menu_status"),
+                     InlineKeyboardButton("❓ HELP", callback_data="menu_help")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
+                
+        except Exception as e:
+            logger.error(f"Start command error: {e}")
+            # Fallback simple message
+            await update.message.reply_text(
+                "🚀 Fast Forward Bot Started!\nUse /help for instructions.",
+                parse_mode='Markdown'
+            )
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Help command with safe markdown"""
         help_text = """
-📚 **FAST FORWARD BOT - ULTIMATE GUIDE**
+📚 *FAST FORWARD BOT - ULTIMATE GUIDE*
 
-⚡ **LIGHTNING SPEED:**
-• **25 messages/second** - Maximum Telegram allows
-• **5-minute bursts** then **30-second rests** 
-• **Zero risk** of bans or limits
+⚡ *LIGHTNING SPEED*
+• 25 messages/second - Maximum Telegram allows
+• 5-minute bursts then 30-second rests
+• Zero risk of bans or limits
 
-🚀 **HOW TO USE:**
-1. **Setup Source Channel** (where we read from)
-2. **Setup Destination Channel** (where we send to)  
-3. **Start Forwarding** - Watch 25msg/s magic!
+🚀 *HOW TO USE*
+1. Setup Source Channel (where we read from)
+2. Setup Destination Channel (where we send to)
+3. Start Forwarding - Watch 25msg/s magic
 
-🛡️ **SAFETY FEATURES:**
+🛡️ *SAFETY FEATURES*
 • 100% Official Bot API - No risks
 • Automatic rate limit protection
-• Progress tracking & resume capability
+• Progress tracking and resume capability
 • Error recovery system
 
-🎯 **ONE-CLICK SETUP:**
-Just tap buttons - no typing needed!
+🎯 *ONE-CLICK SETUP*
+Just tap buttons - no typing needed
 
-**Ready to experience the fastest forwarding?**"""
+*Ready to experience the fastest forwarding?*"""
         
         await update.message.reply_text(help_text, parse_mode='Markdown')
     
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Status command with safe formatting"""
         status_text = f"""
-📊 **SYSTEM STATUS - LIVE**
+📊 *SYSTEM STATUS - LIVE*
 
-✅ **Bot Status:** OPERATIONAL
-⚡ **Max Speed:** {Config.MAX_SPEED} messages/second
-⏰ **Burst Cycle:** {Config.BURST_DURATION}s ON → {Config.REST_DURATION}s OFF
-🛡️ **Safety System:** ACTIVE
-🔧 **Auto-Recovery:** ENABLED
+✅ *Bot Status:* OPERATIONAL
+⚡ *Max Speed:* {Config.MAX_SPEED} messages/second
+⏰ *Burst Cycle:* {Config.BURST_DURATION}s ON → {Config.REST_DURATION}s OFF
+🛡️ *Safety System:* ACTIVE
+🔧 *Auto-Recovery:* ENABLED
 
-**Server:** 24/7 with health checks
-**Uptime:** Continuous operation
+*Server:* 24/7 with health checks
+*Uptime:* Continuous operation
 
 Use buttons below to start!"""
         
@@ -134,111 +169,170 @@ Use buttons below to start!"""
     
     # ==================== BUTTON HANDLERS ====================
     async def main_menu_click(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle main menu button clicks"""
         query = update.callback_query
         await query.answer()
         
         data = query.data
         
-        if data == "menu_main":
-            await menu_handler.show_main_menu(update, context)
-        elif data == "menu_setup_source":
-            await menu_handler.show_source_setup(update, context)
-        elif data == "menu_setup_dest":
-            await menu_handler.show_dest_setup(update, context)
-        elif data == "menu_start_forward":
-            await forward_handler.start_forwarding(update, context)
-        elif data == "menu_status":
-            await self.status_command(update, context)
-        elif data == "menu_help":
-            await self.help_command(update, context)
+        try:
+            if data == "menu_main":
+                await menu_handler.show_main_menu(update, context)
+            elif data == "menu_setup_source":
+                await menu_handler.show_source_setup(update, context)
+            elif data == "menu_setup_dest":
+                await menu_handler.show_dest_setup(update, context)
+            elif data == "menu_start_forward":
+                await forward_handler.start_forwarding(update, context)
+            elif data == "menu_status":
+                await self.show_safe_status(update, context)
+            elif data == "menu_help":
+                await self.show_safe_help(update, context)
+        except Exception as e:
+            logger.error(f"Menu click error: {e}")
+            await query.edit_message_text(
+                "❌ Menu error. Use /start to restart.",
+                parse_mode='Markdown'
+            )
     
     async def forwarding_click(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle forwarding control buttons"""
         query = update.callback_query
         await query.answer()
         
         data = query.data
         
-        if data == "forward_start":
-            await forward_handler.start_forwarding(update, context)
-        elif data == "forward_pause":
-            await forward_handler.pause_forwarding(update, context)
-        elif data == "forward_stop":
-            await forward_handler.stop_forwarding(update, context)
-        elif data == "forward_stats":
-            await query.answer("📊 Live stats: 25msg/s active!", show_alert=True)
-        elif data == "forward_resume":
-            await query.answer("▶️ Resume feature ready!", show_alert=True)
+        try:
+            if data == "forward_start":
+                await forward_handler.start_forwarding(update, context)
+            elif data == "forward_pause":
+                await forward_handler.pause_forwarding(update, context)
+            elif data == "forward_stop":
+                await forward_handler.stop_forwarding(update, context)
+            elif data == "forward_stats":
+                await query.answer("📊 Live stats: 25msg/s active!", show_alert=True)
+            elif data == "forward_resume":
+                await query.answer("▶️ Resume feature ready!", show_alert=True)
+        except Exception as e:
+            logger.error(f"Forwarding click error: {e}")
+            await query.answer("❌ Action failed. Try again.", show_alert=True)
     
     async def source_setup_click(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle source channel setup buttons"""
         query = update.callback_query
         await query.answer()
         
         data = query.data
         
-        if data == "source_forward_msg":
-            await query.edit_message_text(
-                "📨 **Please forward any message from your SOURCE channel...**\n\n"
-                "I'll auto-detect the channel and permissions.",
-                parse_mode='Markdown'
-            )
-        elif data == "source_send_link":
-            await query.edit_message_text(
-                "🔗 **Please send your SOURCE channel link:**\n\n"
-                "Format: @channel_username or https://t.me/channel_username",
-                parse_mode='Markdown'
-            )
-            context.user_data['awaiting_source_link'] = True
+        try:
+            if data == "source_forward_msg":
+                await query.edit_message_text(
+                    "📨 *Please forward any message from your SOURCE channel*" + "\n\n" +
+                    "I'll auto-detect the channel and permissions.",
+                    parse_mode='Markdown'
+                )
+            elif data == "source_send_link":
+                await query.edit_message_text(
+                    "🔗 *Please send your SOURCE channel link*" + "\n\n" +
+                    "Format: @channel_username or https://t.me/channel_username",
+                    parse_mode='Markdown'
+                )
+                context.user_data['awaiting_source_link'] = True
+        except Exception as e:
+            logger.error(f"Source setup error: {e}")
+            await query.answer("❌ Setup failed. Try again.", show_alert=True)
     
     async def dest_setup_click(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle destination channel setup buttons"""
         query = update.callback_query
         await query.answer()
         
         data = query.data
         
-        if data == "dest_forward_msg":
-            await query.edit_message_text(
-                "📨 **Please forward any message from your DESTINATION channel...**\n\n"
-                "I'll auto-detect the channel and verify bot admin permissions.",
-                parse_mode='Markdown'
-            )
-        elif data == "dest_send_link":
-            await query.edit_message_text(
-                "🔗 **Please send your DESTINATION channel link:**\n\n"
-                "Format: @channel_username or https://t.me/channel_username",
-                parse_mode='Markdown'
-            )
-            context.user_data['awaiting_dest_link'] = True
+        try:
+            if data == "dest_forward_msg":
+                await query.edit_message_text(
+                    "📨 *Please forward any message from your DESTINATION channel*" + "\n\n" +
+                    "I'll auto-detect the channel and verify bot admin permissions.",
+                    parse_mode='Markdown'
+                )
+            elif data == "dest_send_link":
+                await query.edit_message_text(
+                    "🔗 *Please send your DESTINATION channel link*" + "\n\n" +
+                    "Format: @channel_username or https://t.me/channel_username",
+                    parse_mode='Markdown'
+                )
+                context.user_data['awaiting_dest_link'] = True
+        except Exception as e:
+            logger.error(f"Dest setup error: {e}")
+            await query.answer("❌ Setup failed. Try again.", show_alert=True)
+    
+    # ==================== SAFE VERSIONS FOR BUTTONS ====================
+    async def show_safe_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Safe status for button clicks"""
+        query = update.callback_query
+        status_text = f"""
+📊 *SYSTEM STATUS*
+
+✅ Bot is running
+⚡ Speed: {Config.MAX_SPEED} msg/s
+🛡️ Safety system: Active
+🔧 Ready for forwarding"""
+        
+        await query.edit_message_text(status_text, parse_mode='Markdown')
+    
+    async def show_safe_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Safe help for button clicks"""
+        query = update.callback_query
+        help_text = """
+📚 *Quick Guide*
+
+1. Setup source channel
+2. Setup destination channel  
+3. Start 25msg/s forwarding
+
+Tap buttons to navigate!"""
+        
+        await query.edit_message_text(help_text, parse_mode='Markdown')
     
     # ==================== MESSAGE HANDLERS ====================
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages (channel links)"""
-        await setup_handler.handle_channel_link(update, context)
+        try:
+            await setup_handler.handle_channel_link(update, context)
+        except Exception as e:
+            logger.error(f"Message handle error: {e}")
+            await update.message.reply_text("❌ Could not process message. Try again.")
     
     async def handle_forwarded_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle forwarded messages from channels"""
-        user_id = update.message.from_user.id
-        user_channels = await setup_handler.get_user_channels(user_id)
-        
-        if 'source' not in user_channels:
-            await setup_handler.handle_source_forward(update, context)
-        elif 'destination' not in user_channels:
-            await setup_handler.handle_dest_forward(update, context)
-        else:
-            await update.message.reply_text(
-                "✅ Both channels setup! Use /start to begin 25msg/s forwarding!",
-                parse_mode='Markdown'
-            )
+        try:
+            user_id = update.message.from_user.id
+            user_channels = await setup_handler.get_user_channels(user_id)
+            
+            if 'source' not in user_channels:
+                await setup_handler.handle_source_forward(update, context)
+            elif 'destination' not in user_channels:
+                await setup_handler.handle_dest_forward(update, context)
+            else:
+                await update.message.reply_text(
+                    "✅ Both channels setup! Use /start to begin 25msg/s forwarding!",
+                    parse_mode='Markdown'
+                )
+        except Exception as e:
+            logger.error(f"Forwarded message error: {e}")
+            await update.message.reply_text("❌ Could not process forwarded message.")
     
     async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Log errors gracefully"""
-        logger.error(f"Exception: {context.error}")
+        """Log errors gracefully without crashing"""
+        logger.error(f"Bot error: {context.error}")
         try:
             if update and update.effective_message:
                 await update.effective_message.reply_text(
                     "❌ An error occurred. The bot has auto-recovered and is still running!"
                 )
         except:
-            pass
+            pass  # Silent fail if we can't send error message
     
     def run(self):
         """Start the bot with full features"""
